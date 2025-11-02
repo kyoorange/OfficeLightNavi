@@ -15,7 +15,7 @@
 - **バックエンド**: FastAPI, Python
 - **AI**: OpenAI API, Langchain
 - **データ**: PostgreSQL + Supabase（pgvector対応）
-- **デプロイ**: Vercel（フロントエンド + バックエンド）
+- **デプロイ**: Vercel（フロント）
 
 ## セットアップ
 

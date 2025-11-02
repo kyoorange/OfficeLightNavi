@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ChatMessage from '@/components/ChatMessage'
 import ChatInput from '@/components/ChatInput'
 import { Message, ChatRequest, ChatResponse } from '@/app/types/chat'
@@ -16,6 +16,39 @@ export default function Home() {
   ])
   const [isLoading, setIsLoading] = useState(false)
   const [context, setContext] = useState<ChatRequest['context']>({})
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const savedTheme = window.localStorage.getItem('theme')
+    const shouldUseDark = savedTheme ? savedTheme === 'dark' : prefersDark
+    setIsDarkMode(shouldUseDark)
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (isDarkMode) {
+      root.classList.add('dark')
+      window.localStorage.setItem('theme', 'dark')
+    } else {
+      root.classList.remove('dark')
+      window.localStorage.setItem('theme', 'light')
+    }
+  }, [isDarkMode])
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      setIsSidebarOpen(!mobile)
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const extractProjectInfo = (text: string): Partial<ChatRequest['context']> => {
     const info: Partial<ChatRequest['context']> = {}
@@ -52,23 +85,27 @@ export default function Home() {
   }
 
   const handleSendMessage = async (content: string) => {
+    const trimmed = content.trim()
+    if (!trimmed) return
+
     // ユーザーメッセージを追加
     const userMessage: Message = {
       role: 'user',
-      content
+      content: trimmed
     }
-    setMessages(prev => [...prev, userMessage])
+    const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
     setIsLoading(true)
 
     // コンテキスト情報を抽出・更新
-    const extractedInfo = extractProjectInfo(content)
+    const extractedInfo = extractProjectInfo(trimmed)
     const updatedContext = { ...context, ...extractedInfo }
     setContext(updatedContext)
 
     try {
       // APIにリクエスト
       const request: ChatRequest = {
-        messages: [...messages, userMessage].map(m => ({
+        messages: updatedMessages.map(m => ({
           role: m.role,
           content: m.content
         })),
@@ -111,33 +148,133 @@ export default function Home() {
     }
   }
 
+  const toggleSidebar = () => setIsSidebarOpen(prev => !prev)
+  const toggleDarkMode = () => setIsDarkMode(prev => !prev)
+
+  const formatBoolean = (value: boolean | undefined, positive: string, negative: string) => {
+    if (value === undefined) return '未設定'
+    return value ? positive : negative
+  }
+
+  const contextSummary = [
+    { label: '物件名', value: context?.property_name || '未設定' },
+    { label: '部屋名', value: context?.room_name || '未設定' },
+    { label: '天井高', value: context?.ceiling_height ? `${context.ceiling_height} m` : '未設定' },
+    { label: '案件タイプ', value: context?.project_type || '未設定' },
+    { label: '特殊環境', value: formatBoolean(context?.special_environment, 'あり', 'なし') },
+    { label: '調光', value: formatBoolean(context?.dimming, '可能', '不要') },
+    { label: '調色', value: formatBoolean(context?.color_temperature, '可能', '不要') },
+    { label: '図面からの印象', value: context?.impression || '未設定' },
+  ]
+
+  const showOverlay = isSidebarOpen && isMobile
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-gray-100">
-      <div className="w-full max-w-4xl">
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-          Lighting Agent - 照明器具選定支援
-        </h1>
-        
-        <div className="bg-white rounded-lg shadow-lg p-6 h-[600px] flex flex-col">
-          <div className="flex-1 overflow-y-auto mb-4 space-y-4">
-            {messages.map((message, index) => (
-              <ChatMessage key={index} message={message} />
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-200 rounded-lg px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+    <main className="flex h-screen overflow-hidden bg-gray-100 text-gray-900 transition-colors duration-300 dark:bg-gray-950 dark:text-gray-100 md:pl-64">
+      {showOverlay && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+
+      <aside
+        className={`fixed top-0 left-0 z-40 flex h-full w-64 flex-col border-r border-gray-200 bg-white/95 backdrop-blur-lg shadow-lg transition-transform duration-300 dark:border-gray-800 dark:bg-gray-900/95 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0`}
+      >
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-800">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-blue-500">OfficeLightNavi</p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="rounded-lg p-2 text-sm text-gray-500 transition hover:bg-gray-100 md:hidden dark:text-gray-300 dark:hover:bg-gray-800"
+            aria-label="サイドバーを閉じる"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex h-full flex-col justify-between px-6 py-6">
+          <div className="space-y-8 pr-1">
+
+            <section className="space-y-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                入力済みの物件情報
+              </h2>
+              <div className="space-y-2 text-sm">
+                {contextSummary.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-lg border border-gray-200 bg-white/60 px-3 py-2 dark:border-gray-800 dark:bg-gray-800/60"
+                  >
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.label}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <div className="mt-6 space-y-3 text-xs text-gray-500 dark:text-gray-400">
+            <p>プロジェクトを保存すると、次回から同じ条件で相談できます。</p>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex h-full flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-gray-200 bg-white/70 px-4 py-4 shadow-sm backdrop-blur-lg transition dark:border-gray-800 dark:bg-gray-900/70">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100 md:hidden dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              {isSidebarOpen ? '閉じる' : 'メニュー'}
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleDarkMode}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              <span>{isDarkMode ? 'ライトモード' : 'ダークモード'}</span>
+            </button>
+          </div>
+        </header>
+
+        <section className="flex flex-1 flex-col overflow-hidden px-4 py-6 sm:px-8">
+          <div className="flex flex-1 flex-col rounded-3xl border border-gray-200 bg-white/90 shadow-lg backdrop-blur-sm transition-colors dark:border-gray-800 dark:bg-gray-900/80">
+            <div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-6 sm:px-8">
+              {messages.map((message, index) => (
+                <ChatMessage key={index} message={message} />
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="rounded-xl bg-blue-500/10 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-blue-500"></div>
+                      <div
+                        className="h-2 w-2 animate-bounce rounded-full bg-blue-500"
+                        style={{ animationDelay: '0.1s' }}
+                      ></div>
+                      <div
+                        className="h-2 w-2 animate-bounce rounded-full bg-blue-500"
+                        style={{ animationDelay: '0.2s' }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+            <div className="border-t border-gray-200 px-4 py-4 sm:px-8 dark:border-gray-800">
+              <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+            </div>
           </div>
-          
-          <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
-        </div>
+        </section>
       </div>
     </main>
   )
