@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ProductCategory {
+  id                Int      @id @default(autoincrement())
+  name              String   @db.VarChar(255)
+  manufacturer      String   @db.VarChar(100)
+  series            String   @db.VarChar(100)
+  ceilingHeightMin  Float    @map("ceiling_height_min")
+  ceilingHeightMax  Float    @map("ceiling_height_max")
+  suitableFor       Json     @map("suitable_for")
+  description       String?  @db.Text
+  embedding         Unsupported("vector(1536)")? @map("embedding")
+
+  @@map("product_categories")
+}
