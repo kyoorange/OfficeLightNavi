@@ -246,8 +246,8 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="flex flex-1 flex-col overflow-hidden px-4 py-6 sm:px-8">
-          <div className="flex flex-1 flex-col rounded-3xl border border-gray-200 bg-white/90 shadow-lg backdrop-blur-sm transition-colors dark:border-gray-800 dark:bg-gray-900/80">
+        <section className="flex flex-1 min-h-0 flex-col overflow-hidden px-4 py-6 sm:px-8">
+          <div className="flex flex-1 min-h-0 flex-col rounded-3xl border border-gray-200 bg-white/90 shadow-lg backdrop-blur-sm transition-colors dark:border-gray-800 dark:bg-gray-900/80">
             <div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-6 sm:px-8">
               {messages.map((message, index) => (
                 <ChatMessage key={index} message={message} />
